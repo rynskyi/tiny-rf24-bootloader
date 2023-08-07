@@ -1,9 +1,11 @@
 TODO:
+    - timeout withot interrupt
+    - pipe in progmem
     - replace boot_*_safe -> boot_*
-    - change package size and len
     - move jmp to define
-    - channel and pipe id to define
-    - check timeout in end (led)
+    * channel and pipe id to define
+    * check timeout in end (led)
+    * change package size and len
 
 Fuses:
     Default: E:FF, H:DF, L:6A
