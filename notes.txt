@@ -1,0 +1,40 @@
+TODO:
+    - replace boot_*_safe -> boot_*
+    - change package size and len
+    - move jmp to define
+    - channel and pipe id to define
+    - check timeout in end (led)
+
+Fuses:
+    Default: E:FF, H:DF, L:6A
+    Current: E:FE, H:DF, L:62
+    Explanation: 
+        E:FE: SELFPRGEN
+        L:62: ?? (clock dangerous)
+
+
+=== Links
+
+ATTiny Port Manipulation
+    https://www.instructables.com/ATTiny-Port-Manipulation/
+
+About memory types and section
+    http://microsin.net/programming/avr/avr-gcc-memory-sections.html
+
+Bout PROGMEM and __flash 
+    https://www.avrfreaks.net/s/topic/a5C3l000000UV5aEAG/t133300
+
+Linking - Sharing libraries between application and bootloader
+    https://www.avrfreaks.net/s/topic/a5C3l000000UW2cEAG/t136960
+
+boot_page_write() doesn't actually write anything:
+    https://www.avrfreaks.net/s/topic/a5C3l000000UbOCEA0/t157516
+
+C++ class vs C & structs
+    https://www.avrfreaks.net/s/topic/a5C3l000000U1VGEA0/t019578
+
+Simple AVR Bootloader tutorial
+    https://www.pocketmagic.net/simple-avr-bootloader-tutorial/
+
+TinyAudioBoot
+    https://github.com/ChrisMicro/TinyAudioBoot/blob/master/TinyAudioBoot/TinyAudioBoot.c#L517
