@@ -1,8 +1,8 @@
 TODO:
-    - timeout withot interrupt
     - pipe in progmem
-    - replace boot_*_safe -> boot_*
-    - move jmp to define
+    * timeout withot interrupt
+    ? replace boot_*_safe -> boot_*
+    * move jmp to define
     * channel and pipe id to define
     * check timeout in end (led)
     * change package size and len

@@ -1,18 +1,24 @@
 #include <avr/boot.h>
-#include <util/delay.h>
-#include <avr/io.h>
 #include <avr/interrupt.h>
+#include <util/delay.h>
 #include <string.h>
 #include <nrf24.h>
 
-#ifndef RWWSRE      // bug in AVR libc:
-#define RWWSRE CTPB // RWWSRE is not defined on ATTinys, use CTBP instead
+#ifndef RWWSRE              // Bug in AVR libc:
+    #define RWWSRE CTPB     // RWWSRE is not defined on ATTinys, use CTBP instead
 #endif
 
 #define bit_set(reg, bit)   reg |= (1 << bit)
 #define bit_clr(reg, bit)   reg &= ~(1 << bit)
 #define NOOP                __asm__ volatile ("nop")
 #define JUMP(addr)          __asm__ volatile ("rjmp %0" :: "i" (addr))
+#define TIMER0_OVRFLOW      (TIFR0 & (1 << OCF0A))
+#define init_timer()                            \
+    {                                           \
+        TCCR0B = (1 << CS12) | (1 << CS10);     \
+        OCR0A = 98;                             \
+    }
+// OCR0A: ((F_CPU / (PRESCALER * 1000)) * TIME_MS)
 
 
 #define BOOT_ADDRESS            0x0400
@@ -22,13 +28,10 @@
 #define RF24_PIPE               {0x31, 0x31, 0x31, 0x31, 0x31}
 #define RF24_PIPE_RX_TIMEOUT    1000
 
+
 void write_page(uint32_t adress, uint8_t *buffer)
 {
     uint16_t offset, word;
-    uint8_t sreg;
-    // Disable interrupts
-    sreg = SREG;
-    cli();
     // Erase the memory
     boot_page_erase_safe(adress);
     // Fill a temporary page
@@ -44,41 +47,21 @@ void write_page(uint32_t adress, uint8_t *buffer)
     boot_page_write_safe(adress);
     boot_rww_enable_safe();
     boot_spm_busy_wait();
-    // Re-enable interrupts
-    SREG = sreg;
-    sei();
 }
 
-volatile uint16_t time = 0;
-
-ISR(TIM0_COMPA_vect) {
-    time += 100;  // time in ms, step: 100 ms
-}
-
-// COMPARE_VALUE  = ((F_CPU / (PRESCALER * 1000)) * INTERRUPT_INTERVAL_MS)
-// OCR0A = ((F_CPU / (1024 * 1000UL)) * 200);
-// Interupt every 100 ms
-void init_timer() {
-    TCCR0A = (1 << WGM01);                  // Clear Timer on Compare Match
-    TCCR0B = (1 << CS12) | (1 << CS10);     // Set prescaler to dividee to 1024
-    // TCCR0B = (1 << CS01) | (1 << CS00);  // Set prescaler to dividee to 64
-    OCR0A = 98;                 // Compare value
-    TIMSK0 |= (1 << OCIE0A);    // Enable compare match interrupt
-    sei();                      // Enable global interrupts
-}
 
 int main()
 {
+    // Disable all interrupts; we don't need them
+    cli();
+
     // Configure pins
     DDRA = (1 << 7);   // pin output: LED (A7)
     DDRB = (1 << 1);   // pin output: LDO (B1)
     bit_set(PORTB, 1); // power on RF24 module
-
-    // Led blink
-    bit_set(PORTA, 7);
-    _delay_ms(1000);
-    bit_clr(PORTA, 7);
-    _delay_ms(1000);
+    
+    // Wait for power on Rf24
+    _delay_ms(10);
 
     // Init timer for timeout check
     init_timer();
@@ -95,7 +78,7 @@ int main()
     int16_t length = 0;
     uint16_t address = BOOT_ADDRESS;
     
-    while (time < 1000)
+    while (!TIMER0_OVRFLOW)
     {
         if (nrf24_dataReady())
         {
@@ -103,10 +86,10 @@ int main()
             nrf24_getData(pkg);
         
             // Check for start package
-            if (!started && (*(uint16_t*)pkg == PKG_MAGIK))   // first 2b of pkg: magik marker
+            if (!started && (*(uint16_t*)pkg == PKG_MAGIK)) // First 2b of pkg: magik marker
             {
                 started = 1;
-                length = *(uint16_t*)(pkg + (PKG_SIZE-2));  // last 2b of pkg: payload length
+                length = *(uint16_t*)(pkg + (PKG_SIZE-2));  // Last 2b of pkg: payload length
                 bit_set(PORTA, 7);
                 continue;
             }
@@ -114,7 +97,7 @@ int main()
             // Process each payload package
             if (started && length > 0)
             {
-                TCNT0 = 0;                          // reset timer
+                TCNT0 = 0;                          // Rreset timer counter
                 memcpy(page + i, pkg, PKG_SIZE);    // Fill temp page
                 length -= PKG_SIZE;
                 i += PKG_SIZE;
@@ -135,10 +118,13 @@ int main()
                 break;
             }
         }
-
     }
 
     nrf24_powerDown();
+    _delay_ms(500);
+    bit_set(PORTA, 7);
+    _delay_ms(500);
+    bit_clr(PORTA, 7);
     for(;;) NOOP;
     // JUMP(BOOT_ADDRESS);
 }
