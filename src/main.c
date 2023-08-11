@@ -18,17 +18,15 @@
 #define RF24_CHANNEL            0x77
 #define RF24_PIPE               {0x31, 0x31, 0x31, 0x31, 0x31}
 
-#define EEPROM_ADDR             (uint16_t *)(E2END - 2)  // last 2 bytes in EEPROM
-#define RJMP_OPCODE             (uint16_t)0xC000
-#define BOOTLOADER_RJMP         RJMP_OPCODE + (BOOTLOADER_ADDRESS / 2) - 1
+#define EEPROM_ADDR             (uint16_t *)(E2END - 2)     // Last 2 bytes in EEPROM memory
+#define RJMP_OPCODE             (uint16_t)0xC000            // RJMP opcode - 1100LLLLLLLLLLLL
+#define TIMEOUT                 (TIFR0 & (1 << OCF0A))      // TIMER0 overflow check macros
 
 #define bit_set(reg, bit)       reg |= (1 << bit)
 #define bit_clr(reg, bit)       reg &= ~(1 << bit)
 #define noop()                  __asm__ volatile ("nop")
 #define rjmp(addr)              __asm__ volatile ("rjmp %0" :: "i" (addr))
 #define ijmp(addr)              asm volatile ("ijmp" :: "z" (addr));
-
-#define TIMER0_OVRFLOW          (TIFR0 & (1 << OCF0A))
 
 
 // Write one page to Flash memory
@@ -92,7 +90,7 @@ int main()
     int16_t length = 0;
     uint16_t address = APP_ADDR;
     
-    while (!TIMER0_OVRFLOW)
+    while (!TIMEOUT)
     {
         if (nrf24_dataReady())
         {
