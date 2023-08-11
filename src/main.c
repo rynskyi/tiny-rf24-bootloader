@@ -53,16 +53,6 @@ void write_page(uint16_t adress, uint8_t *buffer)
 
 int main()
 {
-    // Uploaded payload test program (long blink)
-    // DDRA = (1 << 7);   // pin output: LED (A7)
-    // for(;;) {
-    //     _delay_ms(1500);
-    //     bit_set(PORTA, 7);
-    //     _delay_ms(1500);
-    //     bit_clr(PORTA, 7);
-    // }
-    // return 0;
-    
     // Disable all interrupts; we don't need them
     cli();
 
@@ -71,12 +61,12 @@ int main()
     DDRB = (1 << 1);   // pin output: LDO (B1)
     bit_set(PORTB, 1); // power on RF24 module
 
+    // Wait for power on RF24
+    _delay_ms(10);
+
     // Init timer for timeout check
     TCCR0B = (1 << CS12) | (1 << CS10);
     OCR0A = 98;         // ~100ms (F_CPU / (PRESCALER * 1000)) * MS
-
-    // Wait for power on RF24
-    _delay_ms(10);
 
     // Init RF24 Radio module
     uint8_t mac[5] = RF24_PIPE; // TODO: add to progmem
@@ -87,10 +77,10 @@ int main()
     // Receive data
     uint8_t started = 0, i = 0;
     uint8_t page[SPM_PAGESIZE] = {0};
-    int16_t length = 0;
+    int16_t length = 1;  // signed!
     uint16_t address = APP_ADDR;
     
-    while (!TIMEOUT)
+    while (!TIMEOUT && i < length)
     {
         if (nrf24_dataReady())
         {
@@ -98,7 +88,7 @@ int main()
             nrf24_getData(pkg);
         
             // Check for start package
-            if (!started && (*(uint16_t*)pkg == PKG_MAGIK)) // First 2B of pkg: magik marker
+            if (!started && *(uint16_t*)pkg == PKG_MAGIK) // First 2B of pkg: magik marker
             {
                 started = 1;
                 length = *(uint16_t*)(pkg + (PKG_SIZE-2));  // Last 2B of pkg: payload length
@@ -107,47 +97,42 @@ int main()
             }
 
             // Process each payload package
-            if (started && length > 0)
+            if (started)
             {
-                TCNT0 = 0;                          // Rreset timer counter
-                memcpy(page + i, pkg, PKG_SIZE);    // Fill temp page
-                length -= PKG_SIZE;
-                i += PKG_SIZE;
+                TCNT0 = 0;                                          // Rreset timer counter
+                memcpy(page + (i % SPM_PAGESIZE), pkg, PKG_SIZE);   // Fill temp page
 
                 // Patch app reset vector and save original to eeprom
-                if (i == PKG_SIZE && address == 0) {
+                if (i == 0) {
                     uint16_t app_addr = *(uint16_t*)page - RJMP_OPCODE + 1;
                     eeprom_write_word(EEPROM_ADDR, app_addr);
                     *(uint16_t*)page = RJMP_OPCODE + (BOOTLOADER_ADDR / 2) - 1;
                 }
 
-                // Write page when it's full or when it's the last package
-                if (i == SPM_PAGESIZE || length <= 0)
+                i += PKG_SIZE;
+
+                // Write page when it's full or when it's the end
+                if (i % SPM_PAGESIZE == 0 || i >= length)
                 {
                     write_page(address, page);
                     address += SPM_PAGESIZE;
-                    i = 0;
                     memset(page, 0, SPM_PAGESIZE);
                 }
-            }
-
-            // Finish
-            if (started && length <= 0) {
-                bit_clr(PORTA, 7);
-                break;
             }
         }
     }
 
     nrf24_powerDown();
 
-    for(uint32_t i = 0 ; i < 3; i++) {
+    for(uint8_t i = 0 ; i < 3; i++) {
         _delay_ms(500);
         bit_set(PORTA, 7);
         _delay_ms(500);
         bit_clr(PORTA, 7);
     }
+    // TODO: reset all pins and timers
 
+    // Jump to main app code
     uint16_t app = eeprom_read_word(EEPROM_ADDR);
     ijmp(app);
 }

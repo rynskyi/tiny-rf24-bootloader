@@ -1,11 +1,18 @@
 TODO:
-    - pipe in progmem
-    * timeout withot interrupt
+    - reset pins and timer on exit
+    - defines led_on(), led_off() 
     ? replace boot_*_safe -> boot_*
+    * remove #define init_timer()  
+    * remove caps lock defines
+    * where store original reset vecrot ??
+    * add reset vector replacing
+    * timeout withot interrupt
+    * pipe in progmem
     * move jmp to define
     * channel and pipe id to define
     * check timeout in end (led)
     * change package size and len
+
 
 Fuses:
     Default: E:FF, H:DF, L:6A
