@@ -24,8 +24,6 @@
 
 #define bit_set(reg, bit)       reg |= (1 << bit)
 #define bit_clr(reg, bit)       reg &= ~(1 << bit)
-#define noop()                  __asm__ volatile ("nop")
-#define rjmp(addr)              __asm__ volatile ("rjmp %0" :: "i" (addr))
 #define ijmp(addr)              asm volatile ("ijmp" :: "z" (addr));
 
 
@@ -56,20 +54,22 @@ int main()
     // Disable all interrupts; we don't need them
     cli();
 
-    // Configure pins
-    DDRA = (1 << 7);   // pin output: LED (A7)
-    DDRB = (1 << 1);   // pin output: LDO (B1)
-    bit_set(PORTB, 1); // power on RF24 module
+    // Configure pins    
+    bit_set(DDRB, 1);   // LDO output
+    bit_set(DDRA, 7);   // LED output
+    bit_set(DDRA, 2);   // CE output
+    bit_set(PORTB, 1);  // Power On RF24
+    bit_set(PORTA, 2);  // CE high permanently
 
     // Wait for power on RF24
     _delay_ms(10);
 
-    // Init timer for timeout check
+    // Init timer for timeout check (100ms on 1Mhz CPU)
     TCCR0B = (1 << CS12) | (1 << CS10);
-    OCR0A = 98;         // ~100ms (F_CPU / (PRESCALER * 1000)) * MS
+    OCR0A = 98; // Calc: (F_CPU / (PRESCALER * 1000)) * ms
 
     // Init RF24 Radio module
-    uint8_t mac[5] = RF24_PIPE; // TODO: add to progmem
+    uint8_t mac[5] = RF24_PIPE;
     nrf24_init();
     nrf24_config(RF24_CHANNEL, PKG_SIZE);
     nrf24_rx_address(mac);
@@ -88,11 +88,11 @@ int main()
             nrf24_getData(pkg);
         
             // Check for start package
-            if (!started && *(uint16_t*)pkg == PKG_MAGIK) // First 2B of pkg: magik marker
+            if (!started && *(uint16_t*)pkg == PKG_MAGIK)   // First 2B of pkg: magik marker
             {
                 started = 1;
                 length = *(uint16_t*)(pkg + (PKG_SIZE-2));  // Last 2B of pkg: payload length
-                bit_set(PORTA, 7);
+                bit_set(PORTA, 7);                          // On LED during flashing
                 continue;
             }
 
@@ -122,15 +122,16 @@ int main()
         }
     }
 
-    nrf24_powerDown();
+    // Reset: pins, timer, interrupt
+    PORTA = PORTB = DDRA = DDRB = TCCR0B = OCR0A = 0;
+    sei();
 
-    for(uint8_t i = 0 ; i < 3; i++) {
-        _delay_ms(500);
-        bit_set(PORTA, 7);
-        _delay_ms(500);
-        bit_clr(PORTA, 7);
-    }
-    // TODO: reset all pins and timers
+    // for(uint8_t i = 0 ; i < 3; i++) {
+    //     _delay_ms(500);
+    //     bit_set(PORTA, 7);
+    //     _delay_ms(500);
+    //     bit_clr(PORTA, 7);
+    // }
 
     // Jump to main app code
     uint16_t app = eeprom_read_word(EEPROM_ADDR);

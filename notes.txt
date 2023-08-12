@@ -1,7 +1,8 @@
 TODO:
-    - reset pins and timer on exit
-    - defines led_on(), led_off() 
+    ? defines led_on(), led_off() 
     ? replace boot_*_safe -> boot_*
+    * reset pins and timer on exit
+    * led on on end
     * remove #define init_timer()  
     * remove caps lock defines
     * where store original reset vecrot ??
