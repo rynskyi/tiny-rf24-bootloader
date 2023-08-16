@@ -16,7 +16,7 @@
 #define PKG_MAGIK               0x7777
 #define PKG_SIZE                4
 #define RF24_CHANNEL            0x77
-#define RF24_PIPE               {0x31, 0x31, 0x31, 0x31, 0x31}
+#define RF24_NODE_ADDR          "12345"
 
 #define EEPROM_ADDR             (uint16_t *)(E2END - 2)     // Last 2 bytes in EEPROM memory
 #define RJMP_OPCODE             (uint16_t)0xC000            // RJMP opcode - 1100LLLLLLLLLLLL
@@ -69,10 +69,9 @@ int main()
     OCR0A = 98; // Calc: (F_CPU / (PRESCALER * 1000)) * ms
 
     // Init RF24 Radio module
-    uint8_t mac[5] = RF24_PIPE;
     nrf24_init();
     nrf24_config(RF24_CHANNEL, PKG_SIZE);
-    nrf24_rx_address(mac);
+    nrf24_rx_address((uint8_t*) RF24_NODE_ADDR);
 
     // Receive data
     uint8_t started = 0, i = 0;
